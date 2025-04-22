@@ -1,3 +1,9 @@
 # game_store
 
-Project Laravel
+Table :
+- Admin
+- User
+- Game
+- Order
+- Payment
+- Review
