@@ -2,7 +2,7 @@
 $host = "localhost";
 $user = "root"; // Default user MySQL XAMPP
 $password = ""; // Kosong jika menggunakan XAMPP
-$dbname = "mike_webservice_db";
+$dbname = "game_store";
 
 // Membuat koneksi menggunakan MySQLi
 $conn = new mysqli($host, $user, $password, $dbname);
