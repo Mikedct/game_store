@@ -1,10 +1,10 @@
 <?php
 $host = "localhost";
-$user = "root"; // Default user MySQL XAMPP
-$password = ""; // Kosong jika menggunakan XAMPP
+$user = "root";
+$password = "";
 $dbname = "game_store";
 
-// Membuat koneksi menggunakan MySQLi
+// Membuat koneksi menggunakan MySQL
 $conn = new mysqli($host, $user, $password, $dbname);
 
 // Periksa koneksi

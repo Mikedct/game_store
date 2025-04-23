@@ -8,7 +8,7 @@ $input = json_decode(file_get_contents("php://input"), true);
 if ($method == 'GET') {
     if (isset($_GET['paymentID'])) {
         if ($_GET['paymentID'] == "") {
-            echo json_encode(["message" => "ID Kosong"]);
+            echo json_encode(["message" => "ID must not be empty"]);
         } else {
             $stmt = $conn->prepare("SELECT * FROM payment Where paymentID=$_GET[paymentID]");
             $stmt->execute();
@@ -18,7 +18,7 @@ if ($method == 'GET') {
         }
     } else if (isset($_GET['paymentMethod'])) {
         if ($_GET['paymentMethod'] == "") {
-            echo json_encode(["message" => "paymentMethod Kosong"]);
+            echo json_encode(["message" => "paymentMethod must not be empty"]);
         } else {
             $paymentMethod = "%" . $_GET['paymentMethod'] . "%";
             $stmt = $conn->prepare("SELECT * FROM payment WHERE paymentMethod LIKE ?");
@@ -28,7 +28,19 @@ if ($method == 'GET') {
             $users = $result->fetch_all(MYSQLI_ASSOC);
             echo json_encode($users);
         }
-    } else {
+    } else if (isset($_GET['paymentStatus'])) {
+        if ($_GET['paymentStatus'] == "") {
+            echo json_encode(["message" => "paymentStatus must not be empty"]);
+        } else {
+            $paymentStatus = "%" . $_GET['paymentStatus'] . "%";
+            $stmt = $conn->prepare("SELECT * FROM payment WHERE paymentStatus LIKE ?");
+            $stmt->bind_param("s", $paymentStatus);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $users = $result->fetch_all(MYSQLI_ASSOC);
+            echo json_encode($users);
+        }
+    }else {
         $stmt = $conn->prepare("SELECT * FROM payment");
         $stmt->execute();
         $result = $stmt->get_result();
@@ -36,6 +48,6 @@ if ($method == 'GET') {
         echo json_encode($users);
     }
 } else {
-    echo json_encode(["message" => "Method tidak di ijinkan"]);
+    echo json_encode(["message" => "Method not authorized"]);
 }
 ?>

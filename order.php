@@ -8,7 +8,7 @@ $input = json_decode(file_get_contents("php://input"), true);
 if ($method == 'GET') {
     if (isset($_GET['orderID'])) {
         if ($_GET['orderID'] == "") {
-            echo json_encode(["message" => "ID Kosong"]);
+            echo json_encode(["message" => "ID must not be empty"]);
         } else {
             $stmt = $conn->prepare("SELECT * FROM order Where orderID=$_GET[orderID]");
             $stmt->execute();
@@ -18,7 +18,7 @@ if ($method == 'GET') {
         }
     } else if (isset($_GET['title'])) {
         if ($_GET['title'] == "") {
-            echo json_encode(["message" => "title Kosong"]);
+            echo json_encode(["message" => "title must not be empty"]);
         } else {
             $title = "%" . $_GET['title'] . "%";
             $stmt = $conn->prepare("SELECT * FROM order WHERE title LIKE ?");
@@ -36,6 +36,6 @@ if ($method == 'GET') {
         echo json_encode($users);
     }
 } else {
-    echo json_encode(["message" => "Method tidak di ijinkan"]);
+    echo json_encode(["message" => "Method not authorized"]);
 }
 ?>

@@ -8,7 +8,7 @@ $input = json_decode(file_get_contents("php://input"), true);
 if ($method == 'GET') {
     if (isset($_GET['gameID'])) {
         if ($_GET['gameID'] == "") {
-            echo json_encode(["message" => "ID Kosong"]);
+            echo json_encode(["message" => "ID must not be empty"]);
         } else {
             $stmt = $conn->prepare("SELECT * FROM game Where gameID=$_GET[gameID]");
             $stmt->execute();
@@ -18,7 +18,7 @@ if ($method == 'GET') {
         }
     } else if (isset($_GET['title'])) {
         if ($_GET['title'] == "") {
-            echo json_encode(["message" => "title Kosong"]);
+            echo json_encode(["message" => "title must not be empty"]);
         } else {
             $title = "%" . $_GET['title'] . "%";
             $stmt = $conn->prepare("SELECT * FROM game WHERE title LIKE ?");
@@ -30,7 +30,7 @@ if ($method == 'GET') {
         }
     } else if (isset($_GET['platform'])) {
         if ($_GET['platform'] == "") {
-            echo json_encode(["message" => "platform Kosong"]);
+            echo json_encode(["message" => "platform must not be empty"]);
         } else {
             $platform = "%" . $_GET['platform'] . "%";
             $stmt = $conn->prepare("SELECT * FROM game WHERE platform LIKE ?");
@@ -48,6 +48,6 @@ if ($method == 'GET') {
         echo json_encode($users);
     }
 } else {
-    echo json_encode(["message" => "Method tidak di ijinkan"]);
+    echo json_encode(["message" => "Method not authorized"]);
 }
 ?>

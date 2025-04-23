@@ -48,6 +48,6 @@ if ($method == 'GET') {
         echo json_encode($users);
     }
 } else {
-    echo json_encode(["message" => "Method tidak di ijinkan"]);
+    echo json_encode(["message" => "Method not authorized"]);
 }
 ?>

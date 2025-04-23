@@ -8,7 +8,7 @@ $input = json_decode(file_get_contents("php://input"), true);
 if ($method == 'GET') {
     if (isset($_GET['adminID'])) {
         if ($_GET['adminID'] == "") {
-            echo json_encode(["message" => "ID Kosong"]);
+            echo json_encode(["message" => "ID must not be empty"]);
         } else {
             $stmt = $conn->prepare("SELECT * FROM admin Where adminID=$_GET[adminID]");
             $stmt->execute();
@@ -18,7 +18,7 @@ if ($method == 'GET') {
         }
     } else if (isset($_GET['username'])) {
         if ($_GET['username'] == "") {
-            echo json_encode(["message" => "username Kosong"]);
+            echo json_encode(["message" => "username must not be empty"]);
         } else {
             $firstname = "%" . $_GET['username'] . "%";
             $stmt = $conn->prepare("SELECT * FROM admin WHERE username LIKE ?");
@@ -30,7 +30,7 @@ if ($method == 'GET') {
         }
     } else if (isset($_GET['email'])) {
         if ($_GET['email'] == "") {
-            echo json_encode(["message" => "email Kosong"]);
+            echo json_encode(["message" => "email must not be empty"]);
         } else {
             $username = "%" . $_GET['email'] . "%";
             $stmt = $conn->prepare("SELECT * FROM admin WHERE email LIKE ?");
@@ -48,6 +48,6 @@ if ($method == 'GET') {
         echo json_encode($users);
     }
 } else {
-    echo json_encode(["message" => "Method tidak di ijinkan"]);
+    echo json_encode(["message" => "Method not authorized"]);
 }
 ?>
