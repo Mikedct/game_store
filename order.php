@@ -16,6 +16,42 @@ if ($method == 'GET') {
             $users = $result->fetch_all(MYSQLI_ASSOC);
             echo json_encode($users);
         }
+    } else if (isset($_GET['userID'])) {
+        if ($_GET['userID'] == "") {
+            echo json_encode(["message" => "User ID must not be empty"]);
+        } else {
+            $userID = "%" . $_GET['userID'] . "%";
+            $stmt = $conn->prepare("SELECT * FROM order WHERE userID LIKE ?");
+            $stmt->bind_param("s", $userID);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $users = $result->fetch_all(MYSQLI_ASSOC);
+            echo json_encode($users);
+        }
+    } else if (isset($_GET['username'])) {
+        if ($_GET['username'] == "") {
+            echo json_encode(["message" => "Username must not be empty"]);
+        } else {
+            $username = "%" . $_GET['username'] . "%";
+            $stmt = $conn->prepare("SELECT * FROM order WHERE username LIKE ?");
+            $stmt->bind_param("s", $username);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $users = $result->fetch_all(MYSQLI_ASSOC);
+            echo json_encode($users);
+        }
+    } else if (isset($_GET['gameID'])) {
+        if ($_GET['gameID'] == "") {
+            echo json_encode(["message" => "Game ID must not be empty"]);
+        } else {
+            $gameID = "%" . $_GET['gameID'] . "%";
+            $stmt = $conn->prepare("SELECT * FROM order WHERE gameID LIKE ?");
+            $stmt->bind_param("s", $gameID);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $users = $result->fetch_all(MYSQLI_ASSOC);
+            echo json_encode($users);
+        }
     } else if (isset($_GET['title'])) {
         if ($_GET['title'] == "") {
             echo json_encode(["message" => "title must not be empty"]);

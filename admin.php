@@ -16,6 +16,30 @@ if ($method == 'GET') {
             $users = $result->fetch_all(MYSQLI_ASSOC);
             echo json_encode($users);
         }
+    } else if (isset($_GET['firstName'])) {
+        if ($_GET['firstName'] == "") {
+            echo json_encode(["message" => "First name must not be empty"]);
+        } else {
+            $firstname = "%" . $_GET['firstName'] . "%";
+            $stmt = $conn->prepare("SELECT * FROM admin WHERE firstName LIKE ?");
+            $stmt->bind_param("s", $firstname);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $users = $result->fetch_all(MYSQLI_ASSOC);
+            echo json_encode($users);
+        }
+    } else if (isset($_GET['lastName'])) {
+        if ($_GET['lastName'] == "") {
+            echo json_encode(["message" => "Last name must not be empty"]);
+        } else {
+            $firstname = "%" . $_GET['lastName'] . "%";
+            $stmt = $conn->prepare("SELECT * FROM admin WHERE lastName LIKE ?");
+            $stmt->bind_param("s", $firstname);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $users = $result->fetch_all(MYSQLI_ASSOC);
+            echo json_encode($users);
+        }
     } else if (isset($_GET['username'])) {
         if ($_GET['username'] == "") {
             echo json_encode(["message" => "username must not be empty"]);
@@ -34,6 +58,18 @@ if ($method == 'GET') {
         } else {
             $username = "%" . $_GET['email'] . "%";
             $stmt = $conn->prepare("SELECT * FROM admin WHERE email LIKE ?");
+            $stmt->bind_param("s", $username);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $users = $result->fetch_all(MYSQLI_ASSOC);
+            echo json_encode($users);
+        }
+    } else if (isset($_GET['phoneNumber'])) {
+        if ($_GET['phoneNumber'] == "") {
+            echo json_encode(["message" => "Phone number must not be empty"]);
+        } else {
+            $username = "%" . $_GET['phoneNumber'] . "%";
+            $stmt = $conn->prepare("SELECT * FROM admin WHERE phoneNumber LIKE ?");
             $stmt->bind_param("s", $username);
             $stmt->execute();
             $result = $stmt->get_result();

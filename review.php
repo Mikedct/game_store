@@ -40,6 +40,18 @@ if ($method == 'GET') {
             $users = $result->fetch_all(MYSQLI_ASSOC);
             echo json_encode($users);
         }
+    } else if (isset($_GET['Rating'])) {
+        if ($_GET['Rating'] == "") {
+            echo json_encode(["message" => "Rating must not be empty"]);
+        } else {
+            $Rating = "%" . $_GET['Rating'] . "%";
+            $stmt = $conn->prepare("SELECT * FROM review WHERE Rating LIKE ?");
+            $stmt->bind_param("i", $Rating);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $users = $result->fetch_all(MYSQLI_ASSOC);
+            echo json_encode($users);
+        }
     } else {
         $stmt = $conn->prepare("SELECT * FROM review");
         $stmt->execute();

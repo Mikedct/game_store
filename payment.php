@@ -18,7 +18,7 @@ if ($method == 'GET') {
         }
     } else if (isset($_GET['paymentMethod'])) {
         if ($_GET['paymentMethod'] == "") {
-            echo json_encode(["message" => "paymentMethod must not be empty"]);
+            echo json_encode(["message" => "Payment method must not be empty"]);
         } else {
             $paymentMethod = "%" . $_GET['paymentMethod'] . "%";
             $stmt = $conn->prepare("SELECT * FROM payment WHERE paymentMethod LIKE ?");
@@ -30,7 +30,7 @@ if ($method == 'GET') {
         }
     } else if (isset($_GET['paymentStatus'])) {
         if ($_GET['paymentStatus'] == "") {
-            echo json_encode(["message" => "paymentStatus must not be empty"]);
+            echo json_encode(["message" => "Payment status must not be empty"]);
         } else {
             $paymentStatus = "%" . $_GET['paymentStatus'] . "%";
             $stmt = $conn->prepare("SELECT * FROM payment WHERE paymentStatus LIKE ?");

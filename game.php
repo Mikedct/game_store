@@ -16,6 +16,18 @@ if ($method == 'GET') {
             $users = $result->fetch_all(MYSQLI_ASSOC);
             echo json_encode($users);
         }
+    } else if (isset($_GET['gameCode'])) {
+        if ($_GET['gameCode'] == "") {
+            echo json_encode(["message" => "Game code must not be empty"]);
+        } else {
+            $gameCode = "%" . $_GET['gameCode'] . "%";
+            $stmt = $conn->prepare("SELECT * FROM game WHERE gameCode LIKE ?");
+            $stmt->bind_param("s", $gameCode);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $users = $result->fetch_all(MYSQLI_ASSOC);
+            echo json_encode($users);
+        }
     } else if (isset($_GET['title'])) {
         if ($_GET['title'] == "") {
             echo json_encode(["message" => "title must not be empty"]);
@@ -23,6 +35,42 @@ if ($method == 'GET') {
             $title = "%" . $_GET['title'] . "%";
             $stmt = $conn->prepare("SELECT * FROM game WHERE title LIKE ?");
             $stmt->bind_param("s", $title);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $users = $result->fetch_all(MYSQLI_ASSOC);
+            echo json_encode($users);
+        }
+    } else if (isset($_GET['genre'])) {
+        if ($_GET['genre'] == "") {
+            echo json_encode(["message" => "Genre must not be empty"]);
+        } else {
+            $genre = "%" . $_GET['genre'] . "%";
+            $stmt = $conn->prepare("SELECT * FROM game WHERE genre LIKE ?");
+            $stmt->bind_param("s", $genre);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $users = $result->fetch_all(MYSQLI_ASSOC);
+            echo json_encode($users);
+        }
+    } else if (isset($_GET['developer'])) {
+        if ($_GET['developer'] == "") {
+            echo json_encode(["message" => "Developer must not be empty"]);
+        } else {
+            $developer = "%" . $_GET['developer'] . "%";
+            $stmt = $conn->prepare("SELECT * FROM game WHERE developer LIKE ?");
+            $stmt->bind_param("s", $developer);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $users = $result->fetch_all(MYSQLI_ASSOC);
+            echo json_encode($users);
+        }
+    } else if (isset($_GET['publisher'])) {
+        if ($_GET['publisher'] == "") {
+            echo json_encode(["message" => "Publisher must not be empty"]);
+        } else {
+            $publisher = "%" . $_GET['publisher'] . "%";
+            $stmt = $conn->prepare("SELECT * FROM game WHERE publisher LIKE ?");
+            $stmt->bind_param("s", $publisher);
             $stmt->execute();
             $result = $stmt->get_result();
             $users = $result->fetch_all(MYSQLI_ASSOC);
