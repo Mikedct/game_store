@@ -83,6 +83,59 @@ if ($method == 'GET') {
         $users = $result->fetch_all(MYSQLI_ASSOC);
         echo json_encode($users);
     }
+    
+# Update
+} elseif ($method == 'PUT') {
+    if (isset($input['id'])) {
+        $adminID = $input['id'];
+
+        // Validasi: apakah admin dengan ID ini ada
+        $stmt = $conn->prepare("SELECT adminID FROM admin WHERE adminID = ?");
+        $stmt->bind_param("i", $adminID);
+        $stmt->execute();
+        $stmt->store_result();
+
+        if ($stmt->num_rows === 0) {
+            echo json_encode(["message" => "Admin ID tidak ditemukan"]);
+            exit;
+        }
+
+        // Daftar field yang boleh diupdate
+        $allowedFields = ['firstName', 'lastName', 'username', 'email', 'dateOfBirth', 'phoneNumber', 'password'];
+        $fieldsToUpdate = [];
+        $types = '';
+        $values = [];
+
+        foreach ($allowedFields as $field) {
+            if (isset($input[$field])) {
+                $fieldsToUpdate[] = "$field = ?";
+                $types .= $field == 'dateOfBirth' ? 's' : (is_numeric($input[$field]) ? 'i' : 's');
+                $values[] = $input[$field];
+            }
+        }
+
+        if (empty($fieldsToUpdate)) {
+            echo json_encode(["message" => "Tidak ada data yang dikirim untuk diperbarui"]);
+            exit;
+        }
+
+        // Tambahkan adminID untuk klausa WHERE
+        $types .= 'i';
+        $values[] = $adminID;
+
+        // Bangun query update dinamis
+        $sql = "UPDATE admin SET " . implode(", ", $fieldsToUpdate) . " WHERE adminID = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$values);
+
+        if ($stmt->execute()) {
+            echo json_encode(["message" => "Data admin berhasil diperbarui", "id" => $adminID]);
+        } else {
+            echo json_encode(["message" => "Gagal memperbarui data", "error" => $stmt->error]);
+        }
+    } else {
+        echo json_encode(["message" => "Parameter ID wajib diisi"]);
+    }
 } else {
     echo json_encode(["message" => "Method not authorized"]);
 }
