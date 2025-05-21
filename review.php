@@ -59,6 +59,64 @@ if ($method == 'GET') {
         $users = $result->fetch_all(MYSQLI_ASSOC);
         echo json_encode($users);
     }
+
+// ===== PUT Review =====
+} elseif ($method == 'PUT') {
+    if (isset($input['id'])) {
+        $reviewID = $input['id'];
+
+        // Cek apakah ID ada
+        $stmt = $conn->prepare("SELECT reviewID FROM review WHERE reviewID = ?");
+        $stmt->bind_param("i", $reviewID);
+        $stmt->execute();
+        $stmt->store_result();
+
+        if ($stmt->num_rows === 0) {
+            echo json_encode(["message" => "review ID tidak ditemukan"]);
+            exit;
+        }
+
+        // Validasi Date jika dikirim
+        if (isset($input['Date']) && !DateTime::createFromFormat('Y-m-d', $input['Date'])) {
+            echo json_encode(["message" => "Format Date tidak valid (harus YYYY-MM-DD)"]);
+            exit;
+        }
+
+        // Daftar field yang boleh diupdate
+        $allowedFields = ['userID', 'username', 'gameID', 'title', 'Text', 'Rating', 'Date'];
+        $fieldsToUpdate = [];
+        $types = '';
+        $values = [];
+
+        foreach ($allowedFields as $field) {
+            if (isset($input[$field])) {
+                $fieldsToUpdate[] = "$field = ?";
+                $types .= is_numeric($input[$field]) ? 'i' : 's';
+                $values[] = $input[$field];
+            }
+        }
+
+        if (empty($fieldsToUpdate)) {
+            echo json_encode(["message" => "Tidak ada data yang dikirim untuk diperbarui"]);
+            exit;
+        }
+
+        // Tambahkan reviewID untuk WHERE
+        $types .= 'i';
+        $values[] = $reviewID;
+
+        $sql = "UPDATE review SET " . implode(", ", $fieldsToUpdate) . " WHERE reviewID = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$values);
+
+        if ($stmt->execute()) {
+            echo json_encode(["message" => "Data review berhasil diperbarui", "id" => $reviewID]);
+        } else {
+            echo json_encode(["message" => "Gagal memperbarui data", "error" => $stmt->error]);
+        }
+    } else {
+        echo json_encode(["message" => "Parameter ID wajib diisi"]);
+    }
 } else {
     echo json_encode(["message" => "Method not authorized"]);
 }

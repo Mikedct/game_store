@@ -47,6 +47,59 @@ if ($method == 'GET') {
         $users = $result->fetch_all(MYSQLI_ASSOC);
         echo json_encode($users);
     }
+
+// ===== PUT Payment =====
+} elseif ($method == 'PUT') {
+    if (isset($input['id'])) {
+        $paymentID = $input['id'];
+
+        // Validasi: apakah payment dengan ID ini ada
+        $stmt = $conn->prepare("SELECT paymentID FROM payment WHERE paymentID = ?");
+        $stmt->bind_param("i", $paymentID);
+        $stmt->execute();
+        $stmt->store_result();
+
+        if ($stmt->num_rows === 0) {
+            echo json_encode(["message" => "payment ID tidak ditemukan"]);
+            exit;
+        }
+
+        // Daftar field yang boleh diupdate
+        $allowedFields = ['paymentMethod', 'paymentStatus'];
+        $fieldsToUpdate = [];
+        $types = '';
+        $values = [];
+
+        foreach ($allowedFields as $field) {
+            if (isset($input[$field])) {
+                $fieldsToUpdate[] = "$field = ?";
+                $types .= $field == 'dateOfBirth' ? 's' : (is_numeric($input[$field]) ? 'i' : 's');
+                $values[] = $input[$field];
+            }
+        }
+
+        if (empty($fieldsToUpdate)) {
+            echo json_encode(["message" => "Tidak ada data yang dikirim untuk diperbarui"]);
+            exit;
+        }
+
+        // Tambahkan paymentID untuk klausa WHERE
+        $types .= 'i';
+        $values[] = $paymentID;
+
+        // Bangun query update dinamis
+        $sql = "UPDATE payment SET " . implode(", ", $fieldsToUpdate) . " WHERE paymentID = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$values);
+
+        if ($stmt->execute()) {
+            echo json_encode(["message" => "Data payment berhasil diperbarui", "id" => $paymentID]);
+        } else {
+            echo json_encode(["message" => "Gagal memperbarui data", "error" => $stmt->error]);
+        }
+    } else {
+        echo json_encode(["message" => "Parameter ID wajib diisi"]);
+    }
 } else {
     echo json_encode(["message" => "Method not authorized"]);
 }

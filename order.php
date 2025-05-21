@@ -40,13 +40,13 @@ if ($method == 'GET') {
             $users = $result->fetch_all(MYSQLI_ASSOC);
             echo json_encode($users);
         }
-    } else if (isset($_GET['gameID'])) {
-        if ($_GET['gameID'] == "") {
-            echo json_encode(["message" => "Game ID must not be empty"]);
+    } else if (isset($_GET['orderID'])) {
+        if ($_GET['orderID'] == "") {
+            echo json_encode(["message" => "order ID must not be empty"]);
         } else {
-            $gameID = "%" . $_GET['gameID'] . "%";
-            $stmt = $conn->prepare("SELECT * FROM order WHERE gameID LIKE ?");
-            $stmt->bind_param("s", $gameID);
+            $orderID = "%" . $_GET['orderID'] . "%";
+            $stmt = $conn->prepare("SELECT * FROM order WHERE orderID LIKE ?");
+            $stmt->bind_param("s", $orderID);
             $stmt->execute();
             $result = $stmt->get_result();
             $users = $result->fetch_all(MYSQLI_ASSOC);
@@ -70,6 +70,64 @@ if ($method == 'GET') {
         $result = $stmt->get_result();
         $users = $result->fetch_all(MYSQLI_ASSOC);
         echo json_encode($users);
+    }
+
+// ===== PUT Order =====
+} elseif ($method == 'PUT') {
+    if (isset($input['id'])) {
+        $orderID = $input['id'];
+
+        // Cek apakah ID ada
+        $stmt = $conn->prepare("SELECT orderID FROM order WHERE orderID = ?");
+        $stmt->bind_param("i", $orderID);
+        $stmt->execute();
+        $stmt->store_result();
+
+        if ($stmt->num_rows === 0) {
+            echo json_encode(["message" => "order ID tidak ditemukan"]);
+            exit;
+        }
+
+        // Validasi orderDate jika dikirim
+        if (isset($input['orderDate']) && !DateTime::createFromFormat('Y-m-d', $input['orderDate'])) {
+            echo json_encode(["message" => "Format orderDate tidak valid (harus YYYY-MM-DD)"]);
+            exit;
+        }
+
+        // Daftar field yang boleh diupdate
+        $allowedFields = ['userID', 'username', 'title', 'paymentID', 'totalPrice', 'orderDate'];
+        $fieldsToUpdate = [];
+        $types = '';
+        $values = [];
+
+        foreach ($allowedFields as $field) {
+            if (isset($input[$field])) {
+                $fieldsToUpdate[] = "$field = ?";
+                $types .= is_numeric($input[$field]) ? 'i' : 's';
+                $values[] = $input[$field];
+            }
+        }
+
+        if (empty($fieldsToUpdate)) {
+            echo json_encode(["message" => "Tidak ada data yang dikirim untuk diperbarui"]);
+            exit;
+        }
+
+        // Tambahkan orderID untuk WHERE
+        $types .= 'i';
+        $values[] = $orderID;
+
+        $sql = "UPDATE order SET " . implode(", ", $fieldsToUpdate) . " WHERE orderID = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$values);
+
+        if ($stmt->execute()) {
+            echo json_encode(["message" => "Data order berhasil diperbarui", "id" => $orderID]);
+        } else {
+            echo json_encode(["message" => "Gagal memperbarui data", "error" => $stmt->error]);
+        }
+    } else {
+        echo json_encode(["message" => "Parameter ID wajib diisi"]);
     }
 } else {
     echo json_encode(["message" => "Method not authorized"]);

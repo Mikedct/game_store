@@ -83,13 +83,13 @@ if ($method == 'GET') {
         $users = $result->fetch_all(MYSQLI_ASSOC);
         echo json_encode($users);
     }
-    
-# Update
+
+// ===== PUT =====
 } elseif ($method == 'PUT') {
     if (isset($input['id'])) {
         $adminID = $input['id'];
 
-        // Validasi: apakah admin dengan ID ini ada
+        // Cek apakah ID ada
         $stmt = $conn->prepare("SELECT adminID FROM admin WHERE adminID = ?");
         $stmt->bind_param("i", $adminID);
         $stmt->execute();
@@ -97,6 +97,12 @@ if ($method == 'GET') {
 
         if ($stmt->num_rows === 0) {
             echo json_encode(["message" => "Admin ID tidak ditemukan"]);
+            exit;
+        }
+
+        // Validasi dateOfBirth jika dikirim
+        if (isset($input['dateOfBirth']) && !DateTime::createFromFormat('Y-m-d', $input['dateOfBirth'])) {
+            echo json_encode(["message" => "Format dateOfBirth tidak valid (harus YYYY-MM-DD)"]);
             exit;
         }
 
@@ -109,7 +115,7 @@ if ($method == 'GET') {
         foreach ($allowedFields as $field) {
             if (isset($input[$field])) {
                 $fieldsToUpdate[] = "$field = ?";
-                $types .= $field == 'dateOfBirth' ? 's' : (is_numeric($input[$field]) ? 'i' : 's');
+                $types .= is_numeric($input[$field]) ? 'i' : 's';
                 $values[] = $input[$field];
             }
         }
@@ -119,11 +125,10 @@ if ($method == 'GET') {
             exit;
         }
 
-        // Tambahkan adminID untuk klausa WHERE
+        // Tambahkan adminID untuk WHERE
         $types .= 'i';
         $values[] = $adminID;
 
-        // Bangun query update dinamis
         $sql = "UPDATE admin SET " . implode(", ", $fieldsToUpdate) . " WHERE adminID = ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param($types, ...$values);
