@@ -5,6 +5,7 @@ include "config.php";
 $method = $_SERVER['REQUEST_METHOD'];
 $input = json_decode(file_get_contents("php://input"), true);
 
+// ===== Get Admin ====
 if ($method == 'GET') {
     if (isset($_GET['adminID'])) {
         if ($_GET['adminID'] == "") {
@@ -83,30 +84,65 @@ if ($method == 'GET') {
         $users = $result->fetch_all(MYSQLI_ASSOC);
         echo json_encode($users);
     }
-// =====POST=====
-} else if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $firstName = $_POST['firstName'];
-    $lastName = $_POST['lastName'];
-    $username = $_POST['username'];
-    $email = $_POST['email'];
-    $dateOfBirth = $_POST['dateOfBirth'];
-    $phoneNumber = $_POST['phoneNumber'];
-    $password = md5($_POST['password']);
+}
 
-    $sql = "INSERT INTO admin (adminID, firstName, lastName, username, email, dateOfBirth, phoneNumber, password)
-            VALUES (NULL, '$firstName', '$lastName', '$username', '$email', '$dateOfBirth', '$phoneNumber', '$password')";
+// ===== Insert Admin ====
+elseif ($method == "POST") {
+    // Validasi field
+    $requiredFields = ['firstName', 'lastName', 'username', 'email', 'dateOfBirth', 'phoneNumber', 'password'];
+    $missingFields = [];
 
-    if ($conn->query($sql) === TRUE) {
-        echo json_encode(["status" => "success", "message" => "Admin berhasil ditambahkan"]);
-    } else {
-        echo json_encode(["status" => "error", "message" => $conn->error]);
+    foreach ($requiredFields as $field) {
+        if (!isset($input[$field]) || empty(trim($input[$field]))) {
+            $missingFields[] = $field;
+        }
     }
 
-// ===== PUT =====
-} elseif ($method == 'PUT') {
-    if (!is_array($input)) {
-        echo json_encode(["message" => "Data harus berupa array JSON dengan daftar admin yang ingin diperbarui"]);
+    if (!empty($missingFields)) {
+        echo json_encode(["status" => "error", "message" => "Field wajib: " . implode(', ', $missingFields)]);
         exit;
+    }
+
+    // Ambil data
+    $firstName = trim($input['firstName']);
+    $lastName = trim($input['lastName']);
+    $username = trim($input['username']);
+    $email = trim($input['email']);
+    $dateOfBirth = trim($input['dateOfBirth']);
+    $phoneNumber = trim($input['phoneNumber']);
+    $password = md5(trim($input['password'])); // Bisa ganti pakai password_hash
+
+    // Validasi tanggal
+    if (!DateTime::createFromFormat('Y-m-d', $dateOfBirth)) {
+        echo json_encode(["status" => "error", "message" => "Format tanggal salah. Gunakan format YYYY-MM-DD"]);
+        exit;
+    }
+
+    // Cek duplikat
+    $checkStmt = $conn->prepare("SELECT adminID FROM admin WHERE username = ? OR email = ?");
+    $checkStmt->bind_param("ss", $username, $email);
+    $checkStmt->execute();
+    $checkStmt->store_result();
+    if ($checkStmt->num_rows > 0) {
+        echo json_encode(["status" => "error", "message" => "Username atau email sudah digunakan."]);
+        exit;
+    }
+
+    // Simpan ke DB
+    $stmt = $conn->prepare("INSERT INTO admin (firstName, lastName, username, email, dateOfBirth, phoneNumber, password) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("sssssss", $firstName, $lastName, $username, $email, $dateOfBirth, $phoneNumber, $password);
+
+    if ($stmt->execute()) {
+        echo json_encode(["status" => "success", "message" => "Admin berhasil ditambahkan", "adminID" => $stmt->insert_id]);
+    } else {
+        echo json_encode(["status" => "error", "message" => "Gagal menambahkan admin", "error" => $stmt->error]);
+    }
+}
+
+// ===== Update Admin =====
+elseif ($method == 'PUT') {
+    if (isset($input['adminID'])) {
+        $input = [$input];
     }
 
     $allowedFields = ['firstName', 'lastName', 'username', 'email', 'dateOfBirth', 'phoneNumber', 'password'];
@@ -121,20 +157,20 @@ if ($method == 'GET') {
 
         $adminID = $admin['adminID'];
 
-        // Validasi keberadaan admin
+        // Cek apakah admin ID ada
         $stmt = $conn->prepare("SELECT adminID FROM admin WHERE adminID = ?");
         $stmt->bind_param("i", $adminID);
         $stmt->execute();
         $stmt->store_result();
 
         if ($stmt->num_rows === 0) {
-            $failedAdmins[] = ["id" => $adminID, "message" => "Admin ID tidak ditemukan"];
+            $failedAdmins[] = ["adminID" => $adminID, "message" => "Admin ID tidak ditemukan"];
             continue;
         }
 
-        // Validasi format dateOfBirth
+        // Validasi format tanggal
         if (isset($admin['dateOfBirth']) && !DateTime::createFromFormat('Y-m-d', $admin['dateOfBirth'])) {
-            $failedAdmins[] = ["id" => $adminID, "message" => "Format dateOfBirth tidak valid (harus YYYY-MM-DD)"];
+            $failedAdmins[] = ["adminID" => $adminID, "message" => "Format dateOfBirth tidak valid (harus YYYY-MM-DD)"];
             continue;
         }
 
@@ -145,17 +181,27 @@ if ($method == 'GET') {
         foreach ($allowedFields as $field) {
             if (isset($admin[$field])) {
                 $fieldsToUpdate[] = "$field = ?";
-                $types .= is_numeric($admin[$field]) && $field != 'phoneNumber' ? 'i' : 's';
-                $values[] = $admin[$field];
+
+                // Tentukan tipe dan nilai field
+                if ($field === 'password') {
+                    $types .= 's';
+                    $values[] = md5($admin[$field]); // Hash password dengan md5
+                } elseif (in_array($field, ['firstName', 'lastName', 'username', 'email', 'phoneNumber', 'dateOfBirth'])) {
+                    $types .= 's';
+                    $values[] = $admin[$field];
+                } else {
+                    $types .= 'i';
+                    $values[] = $admin[$field];
+                }
             }
         }
 
         if (empty($fieldsToUpdate)) {
-            $failedAdmins[] = ["id" => $adminID, "message" => "Tidak ada field yang dikirim"];
+            $failedAdmins[] = ["adminID" => $adminID, "message" => "Tidak ada field yang dikirim"];
             continue;
         }
 
-        $types .= 'i';
+        $types .= 'i'; // untuk adminID di WHERE
         $values[] = $adminID;
 
         $sql = "UPDATE admin SET " . implode(", ", $fieldsToUpdate) . " WHERE adminID = ?";
@@ -163,23 +209,55 @@ if ($method == 'GET') {
         $stmt->bind_param($types, ...$values);
 
         if ($stmt->execute()) {
-            $updatedAdmins[] = ["message" => "Data admin dengan ID $adminID berhasil diperbarui"];
+            $updatedAdmins[] = ["adminID" => $adminID, "message" => "Data admin berhasil diperbarui"];
         } else {
-            $failedAdmins[] = ["id" => $adminID, "message" => "Gagal memperbarui data", "error" => $stmt->error];
+            $failedAdmins[] = ["adminID" => $adminID, "message" => "Gagal memperbarui data", "error" => $stmt->error];
         }
     }
 
-    // Buat response dinamis
     $response = [];
     if (!empty($updatedAdmins)) {
         $response["updated"] = $updatedAdmins;
     }
-
     if (!empty($failedAdmins)) {
         $response["failed"] = $failedAdmins;
     }
 
     echo json_encode($response);
+}
+
+// ===== Delete admin =====
+elseif ($method == 'DELETE') {
+    $adminID = $input['adminID'] ?? null;
+
+    if (empty($adminID)) {
+        echo json_encode(["message" => "Admin ID wajib diisi untuk menghapus data."]);
+        exit;
+    }
+
+    if (!filter_var($adminID, FILTER_VALIDATE_INT)) {
+        echo json_encode(["message" => "Admin ID tidak valid."]);
+        exit;
+    }
+
+    $stmt_check = $conn->prepare("SELECT adminID FROM admin WHERE adminID = ?");
+    $stmt_check->bind_param("i", $adminID);
+    $stmt_check->execute();
+    $stmt_check->store_result();
+
+    if ($stmt_check->num_rows === 0) {
+        echo json_encode(["message" => "Admin ID tidak ditemukan."]);
+        exit;
+    }
+
+    $stmt_delete = $conn->prepare("DELETE FROM admin WHERE adminID = ?");
+    $stmt_delete->bind_param("i", $adminID);
+
+    if ($stmt_delete->execute()) {
+        echo json_encode(["message" => "Admin berhasil dihapus.", "id" => $adminID]);
+    } else {
+        echo json_encode(["message" => "Gagal menghapus admin.", "error" => $stmt_delete->error]);
+    }
 } else {
     echo json_encode(["message" => "Method not authorized"]);
 }
