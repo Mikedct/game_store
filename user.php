@@ -10,7 +10,7 @@ if ($method == 'GET') {
         if ($_GET['userID'] == "") {
             echo json_encode(["message" => "ID must not be empty"]);
         } else {
-            $stmt = $conn->prepare("SELECT * FROM user Where userID=$_GET[userID]");
+            $stmt = $conn->prepare("SELECT * FROM users Where userID=$_GET[userID]");
             $stmt->execute();
             $result = $stmt->get_result();
             $users = $result->fetch_all(MYSQLI_ASSOC);
@@ -21,7 +21,7 @@ if ($method == 'GET') {
             echo json_encode(["message" => "First name must not be empty"]);
         } else {
             $firstname = "%" . $_GET['firstName'] . "%";
-            $stmt = $conn->prepare("SELECT * FROM user WHERE firstName LIKE ?");
+            $stmt = $conn->prepare("SELECT * FROM users WHERE firstName LIKE ?");
             $stmt->bind_param("s", $firstname);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -33,7 +33,7 @@ if ($method == 'GET') {
             echo json_encode(["message" => "Last name must not be empty"]);
         } else {
             $lastName = "%" . $_GET['lastName'] . "%";
-            $stmt = $conn->prepare("SELECT * FROM user WHERE lastName LIKE ?");
+            $stmt = $conn->prepare("SELECT * FROM users WHERE lastName LIKE ?");
             $stmt->bind_param("s", $lastName);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -45,7 +45,7 @@ if ($method == 'GET') {
             echo json_encode(["message" => "Username must not be empty"]);
         } else {
             $username = "%" . $_GET['username'] . "%";
-            $stmt = $conn->prepare("SELECT * FROM user WHERE username LIKE ?");
+            $stmt = $conn->prepare("SELECT * FROM users WHERE username LIKE ?");
             $stmt->bind_param("s", $username);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -57,7 +57,7 @@ if ($method == 'GET') {
             echo json_encode(["message" => "Email must not be empty"]);
         } else {
             $email = "%" . $_GET['email'] . "%";
-            $stmt = $conn->prepare("SELECT * FROM user WHERE email LIKE ?");
+            $stmt = $conn->prepare("SELECT * FROM users WHERE email LIKE ?");
             $stmt->bind_param("s", $email);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -69,7 +69,7 @@ if ($method == 'GET') {
             echo json_encode(["message" => "Phone number must not be empty"]);
         } else {
             $phoneNumber = "%" . $_GET['phoneNumber'] . "%";
-            $stmt = $conn->prepare("SELECT * FROM user WHERE phoneNumber LIKE ?");
+            $stmt = $conn->prepare("SELECT * FROM users WHERE phoneNumber LIKE ?");
             $stmt->bind_param("s", $phoneNumber);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -77,7 +77,7 @@ if ($method == 'GET') {
             echo json_encode($users);
         }
     } else {
-        $stmt = $conn->prepare("SELECT * FROM user");
+        $stmt = $conn->prepare("SELECT * FROM users");
         $stmt->execute();
         $result = $stmt->get_result();
         $users = $result->fetch_all(MYSQLI_ASSOC);
@@ -85,63 +85,87 @@ if ($method == 'GET') {
     }
 
 // ===== PUT =====
-} elseif ($method == 'PUT') {
-    if (isset($input['id'])) {
-        $userID = $input['id'];
+} else if($method == 'PUT') {
+    if (isset($input['userID'])) {
+        $input = [$input];
+    }
 
-        // Cek apakah ID ada
-        $stmt = $conn->prepare("SELECT userID FROM user WHERE userID = ?");
+    $allowedFields = ['firstName', 'lastName', 'username', 'email', 'dateOfBirth', 'phoneNumber', 'password'];
+    $updatedUsers = [];
+    $failedUsers = [];
+
+    foreach ($input as $user) {
+        if (!isset($user['userID'])) {
+            $failedUsers[] = ["userID" => null, "message" => "userID tidak ditemukan"];
+            continue;
+        }
+
+        $userID = $user['userID'];
+
+        // Cek user
+        $stmt = $conn->prepare("SELECT userID FROM users WHERE userID = ?");
         $stmt->bind_param("i", $userID);
         $stmt->execute();
         $stmt->store_result();
 
         if ($stmt->num_rows === 0) {
-            echo json_encode(["message" => "user ID tidak ditemukan"]);
-            exit;
+            $failedUsers[] = ["userID" => $userID, "message" => "User ID tidak ditemukan"];
+            continue;
         }
 
-        // Validasi dateOfBirth jika dikirim
-        if (isset($input['dateOfBirth']) && !DateTime::createFromFormat('Y-m-d', $input['dateOfBirth'])) {
-            echo json_encode(["message" => "Format dateOfBirth tidak valid (harus YYYY-MM-DD)"]);
-            exit;
+        // Validasi dateOfBirth
+        if (isset($user['dateOfBirth']) && !DateTime::createFromFormat('Y-m-d', $user['dateOfBirth'])) {
+            $failedUsers[] = ["userID" => $userID, "message" => "Format dateOfBirth tidak valid (harus YYYY-MM-DD)"];
+            continue;
         }
 
-        // Daftar field yang boleh diupdate
-        $allowedFields = ['firstName', 'lastName', 'username', 'email', 'dateOfBirth', 'phoneNumber', 'password'];
         $fieldsToUpdate = [];
         $types = '';
         $values = [];
 
         foreach ($allowedFields as $field) {
-            if (isset($input[$field])) {
+            if (isset($user[$field])) {
                 $fieldsToUpdate[] = "$field = ?";
-                $types .= is_numeric($input[$field]) ? 'i' : 's';
-                $values[] = $input[$field];
+                $types .= 's';
+
+                // Hash password jika field password
+                if ($field === 'password') {
+                    $values[] = md5($user[$field]);
+                } else {
+                    $values[] = $user[$field];
+                }
             }
         }
 
         if (empty($fieldsToUpdate)) {
-            echo json_encode(["message" => "Tidak ada data yang dikirim untuk diperbarui"]);
-            exit;
+            $failedUsers[] = ["userID" => $userID, "message" => "Tidak ada field yang dikirim"];
+            continue;
         }
 
-        // Tambahkan userID untuk WHERE
         $types .= 'i';
         $values[] = $userID;
 
-        $sql = "UPDATE user SET " . implode(", ", $fieldsToUpdate) . " WHERE userID = ?";
+        $sql = "UPDATE users SET " . implode(", ", $fieldsToUpdate) . " WHERE userID = ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param($types, ...$values);
 
         if ($stmt->execute()) {
-            echo json_encode(["message" => "Data user berhasil diperbarui", "id" => $userID]);
+            $updatedUsers[] = ["message" => "Data user dengan ID $userID berhasil diperbarui"];
         } else {
-            echo json_encode(["message" => "Gagal memperbarui data", "error" => $stmt->error]);
+            $failedUsers[] = ["userID" => $userID, "message" => "Gagal memperbarui data", "error" => $stmt->error];
         }
-    } else {
-        echo json_encode(["message" => "Parameter ID wajib diisi"]);
     }
-}else {
-    echo json_encode(["message" => "Method not authorized"]);
+
+    $response = [];
+    if (!empty($updatedUsers)) {
+        $response["updated"] = $updatedUsers;
+    }
+    if (!empty($failedUsers)) {
+        $response["failed"] = $failedUsers;
+    }
+
+    echo json_encode($response);
+} else {
+    echo json_encode(["message" => "Method not allowed"]);
 }
 ?>
