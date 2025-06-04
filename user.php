@@ -85,58 +85,91 @@ if ($method == 'GET') {
     }
 }
 
-// ===== POST =====
-elseif ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $firstName = $_POST['firstName'];
-    $lastName = $_POST['lastName'];
-    $username = $_POST['username'];
-    $email = $_POST['email'];
-    $dateOfBirth = $_POST['dateOfBirth'];
-    $phoneNumber = $_POST['phoneNumber'];
-    $password = md5($_POST['password']);
+// ===== Insert User ====
+elseif ($method == "POST") {
+    // Validasi field
+    $requiredFields = ['firstName', 'lastName', 'username', 'email', 'dateOfBirth', 'phoneNumber', 'password'];
+    $missingFields = [];
 
-    $sql = "INSERT INTO user (userID, firstName, lastName, username, email, dateOfBirth, phoneNumber, password)
-            VALUES (NULL, '$firstName', '$lastName', '$username', '$email', '$dateOfBirth', '$phoneNumber', '$password')";
+    foreach ($requiredFields as $field) {
+        if (!isset($input[$field]) || empty(trim($input[$field]))) {
+            $missingFields[] = $field;
+        }
+    }
 
-    if ($conn->query($sql) === TRUE) {
-        echo json_encode(["status" => "success", "message" => "User berhasil ditambahkan"]);
+    if (!empty($missingFields)) {
+        echo json_encode(["status" => "error", "message" => "Field wajib: " . implode(', ', $missingFields)]);
+        exit;
+    }
+
+    // Ambil data
+    $firstName = trim($input['firstName']);
+    $lastName = trim($input['lastName']);
+    $username = trim($input['username']);
+    $email = trim($input['email']);
+    $dateOfBirth = trim($input['dateOfBirth']);
+    $phoneNumber = trim($input['phoneNumber']);
+    $password = md5(trim($input['password'])); // Bisa ganti pakai password_hash
+
+    // Validasi tanggal
+    if (!DateTime::createFromFormat('Y-m-d', $dateOfBirth)) {
+        echo json_encode(["status" => "error", "message" => "Format tanggal salah. Gunakan format YYYY-MM-DD"]);
+        exit;
+    }
+
+    // Cek duplikat
+    $checkStmt = $conn->prepare("SELECT userID FROM users WHERE username = ? OR email = ?");
+    $checkStmt->bind_param("ss", $username, $email);
+    $checkStmt->execute();
+    $checkStmt->store_result();
+    if ($checkStmt->num_rows > 0) {
+        echo json_encode(["status" => "error", "message" => "Username atau email sudah digunakan."]);
+        exit;
+    }
+
+    // Simpan ke DB
+    $stmt = $conn->prepare("INSERT INTO users (firstName, lastName, username, email, dateOfBirth, phoneNumber, password) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("sssssss", $firstName, $lastName, $username, $email, $dateOfBirth, $phoneNumber, $password);
+
+    if ($stmt->execute()) {
+        echo json_encode(["status" => "success", "message" => "User berhasil ditambahkan", "userID" => $stmt->insert_id]);
     } else {
-        echo json_encode(["status" => "error", "message" => $conn->error]);
+        echo json_encode(["status" => "error", "message" => "Gagal menambahkan user", "error" => $stmt->error]);
     }
 }
 
-// ===== PUT =====
-else if($method == 'PUT') {
+// ===== PUT user =====
+elseif ($method == 'PUT') {
     if (isset($input['userID'])) {
         $input = [$input];
     }
 
     $allowedFields = ['firstName', 'lastName', 'username', 'email', 'dateOfBirth', 'phoneNumber', 'password'];
-    $updatedUsers = [];
-    $failedUsers = [];
+    $updatedusers = [];
+    $failedusers = [];
 
     foreach ($input as $user) {
         if (!isset($user['userID'])) {
-            $failedUsers[] = ["userID" => null, "message" => "userID tidak ditemukan"];
+            $failedusers[] = ["userID" => null, "message" => "user ID tidak ditemukan"];
             continue;
         }
 
         $userID = $user['userID'];
 
-        // Cek user
-        $stmt = $conn->prepare("SELECT userID FROM users WHERE userID = ?");
+        // Cek apakah user ID ada
+        $stmt = $conn->prepare("SELECT userID FROM `users` WHERE userID = ?");
         $stmt->bind_param("i", $userID);
         $stmt->execute();
         $stmt->store_result();
 
         if ($stmt->num_rows === 0) {
-            $failedUsers[] = ["userID" => $userID, "message" => "User ID tidak ditemukan"];
+            $failedusers[] = ["userID" => $userID, "message" => "user ID tidak ditemukan"];
             continue;
         }
 
-        // Validasi dateOfBirth
+        // Validasi format tanggal
         if (isset($user['dateOfBirth']) && !DateTime::createFromFormat('Y-m-d', $user['dateOfBirth'])) {
-            $failedUsers[] = ["userID" => $userID, "message" => "Format dateOfBirth tidak valid (harus YYYY-MM-DD)"];
+            $failedusers[] = ["userID" => $userID, "message" => "Format dateOfBirth tidak valid (harus YYYY-MM-DD)"];
             continue;
         }
 
@@ -147,46 +180,84 @@ else if($method == 'PUT') {
         foreach ($allowedFields as $field) {
             if (isset($user[$field])) {
                 $fieldsToUpdate[] = "$field = ?";
-                $types .= 's';
 
-                // Hash password jika field password
+                // Tentukan tipe dan nilai field
                 if ($field === 'password') {
-                    $values[] = md5($user[$field]);
+                    $types .= 's';
+                    $values[] = md5($user[$field]); // Hash password dengan md5
+                } elseif (in_array($field, ['FirstName', 'LastName', 'Username', 'Email', 'phoneNumber', 'dateOfBirth'])) {
+                    $types .= 's';
+                    $values[] = $user[$field];
                 } else {
+                    $types .= 'i';
                     $values[] = $user[$field];
                 }
             }
         }
 
         if (empty($fieldsToUpdate)) {
-            $failedUsers[] = ["userID" => $userID, "message" => "Tidak ada field yang dikirim"];
+            $failedusers[] = ["userID" => $userID, "message" => "Tidak ada field yang dikirim"];
             continue;
         }
 
-        $types .= 'i';
+        $types .= 'i'; // untuk userID di WHERE
         $values[] = $userID;
 
-        $sql = "UPDATE users SET " . implode(", ", $fieldsToUpdate) . " WHERE userID = ?";
+        $sql = "UPDATE `users` SET " . implode(", ", $fieldsToUpdate) . " WHERE userID = ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param($types, ...$values);
 
         if ($stmt->execute()) {
-            $updatedUsers[] = ["message" => "Data user dengan ID $userID berhasil diperbarui"];
+            $updatedusers[] = ["message" => "Data user dengan ID $userID berhasil diperbarui"];
         } else {
-            $failedUsers[] = ["userID" => $userID, "message" => "Gagal memperbarui data", "error" => $stmt->error];
+            $failedusers[] = ["userID" => $userID, "message" => "Gagal memperbarui data", "error" => $stmt->error];
         }
     }
 
     $response = [];
-    if (!empty($updatedUsers)) {
-        $response["updated"] = $updatedUsers;
+    if (!empty($updatedusers)) {
+        $response["updated"] = $updatedusers;
     }
-    if (!empty($failedUsers)) {
-        $response["failed"] = $failedUsers;
+    if (!empty($failedusers)) {
+        $response["failed"] = $failedusers;
     }
 
     echo json_encode($response);
+}
+
+// ===== Delete user =====
+elseif ($method == 'DELETE') {
+    $userID = $input['userID'] ?? null;
+
+    if (empty($userID)) {
+        echo json_encode(["message" => "user ID wajib diisi untuk menghapus data."]);
+        exit;
+    }
+
+    if (!filter_var($userID, FILTER_VALIDATE_INT)) {
+        echo json_encode(["message" => "user ID tidak valid."]);
+        exit;
+    }
+
+    $stmt_check = $conn->prepare("SELECT userID FROM users WHERE userID = ?");
+    $stmt_check->bind_param("i", $userID);
+    $stmt_check->execute();
+    $stmt_check->store_result();
+
+    if ($stmt_check->num_rows === 0) {
+        echo json_encode(["message" => "user ID tidak ditemukan."]);
+        exit;
+    }
+
+    $stmt_delete = $conn->prepare("DELETE FROM users WHERE userID = ?");
+    $stmt_delete->bind_param("i", $userID);
+
+    if ($stmt_delete->execute()) {
+        echo json_encode(["message" => "Data user dengan ID $userID berhasil dihapus"]);
+    } else {
+        echo json_encode(["message" => "Gagal menghapus user.", "error" => $stmt_delete->error]);
+    }
 } else {
-    echo json_encode(["message" => "Method not allowed"]);
+    echo json_encode(["message" => "Method not authorized"]);
 }
 ?>

@@ -95,73 +95,135 @@ if ($method == 'GET') {
         $users = $result->fetch_all(MYSQLI_ASSOC);
         echo json_encode($users);
     }
-} 
+}
 
-// ===== POST Game =====
-elseif ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $gameCode = $_POST['gameCode'];
-    $title = $_POST['title'];
-    $genre = $_POST['genre'];
-    $platform = $_POST['platform'];
-    $price = $_POST['price'];
-    $releaseDate = $_POST['releaseDate'];
-    $developer = $_POST['developer'];
-    $publisher = $_POST['publisher'];
-    $description = $_POST['description'];
-    $adminID = $_POST['adminID'];
+// ===== Insert game ====
+elseif ($method == "POST") {
+    // Validasi field
+    $requiredFields = ['gameCode', 'title', 'genre', 'platform', 'price', 'releaseDate', 'developer', 'publisher', 'description', 'adminID'];
+    $missingFields = [];
 
-    $sql = "INSERT INTO game (gameID, gameCode, title, genre, platform, price, releaseDate, developer, publisher, description, adminID)
-            VALUES (NULL, '$gameCode', '$title', '$genre', '$platform', $price, '$releaseDate', '$developer', '$publisher', '$description', $adminID)";
-
-    if ($conn->query($sql) === TRUE) {
-        echo json_encode(["status" => "success", "message" => "Game berhasil ditambahkan"]);
-    } else {
-        echo json_encode(["status" => "error", "message" => $conn->error]);
+    foreach ($requiredFields as $field) {
+        if (!isset($input[$field]) || trim($input[$field]) === '') {
+            $missingFields[] = $field;
+        }
     }
-} 
 
-// ===== PUT =====
-elseif ($method == 'PUT') {
-    if (isset($input['id'])) {
-        $gameID = $input['id'];
+    if (!empty($missingFields)) {
+        echo json_encode(["status" => "error", "message" => "Field wajib: " . implode(', ', $missingFields)]);
+        exit;
+    }
 
-        // Cek apakah ID ada
+    // Ambil dan bersihkan input
+    $gameCode    = trim($input['gameCode']);
+    $title       = trim($input['title']);
+    $genre       = trim($input['genre']);
+    $platform    = trim($input['platform']);
+    $priceInput  = trim($input['price']);
+    $releaseDate = trim($input['releaseDate']);
+    $developer   = trim($input['developer']);
+    $publisher   = trim($input['publisher']);
+    $description = trim($input['description']);
+    $adminIDInput= trim($input['adminID']);
+
+    // Validasi price: angka >= 0 atau string "free"
+    if (strtolower($priceInput) === "free") {
+        $price = 0.0;
+    } elseif (is_numeric($priceInput) && floatval($priceInput) >= 0) {
+        $price = floatval($priceInput);
+    } else {
+        echo json_encode(["status" => "error", "message" => "Harga tidak valid. Gunakan angka positif atau 'free'."]);
+        exit;
+    }
+
+    // Validasi adminID
+    if (!is_numeric($adminIDInput)) {
+        echo json_encode(["status" => "error", "message" => "adminID harus berupa angka."]);
+        exit;
+    }
+    $adminID = intval($adminIDInput);
+
+    // Validasi tanggal
+    $dateObj = DateTime::createFromFormat('Y-m-d', $releaseDate);
+    if (!$dateObj || $dateObj->format('Y-m-d') !== $releaseDate) {
+        echo json_encode(["status" => "error", "message" => "Format tanggal salah. Gunakan format YYYY-MM-DD"]);
+        exit;
+    }
+
+    // Cek duplikat
+    $checkStmt = $conn->prepare("SELECT gameID FROM game WHERE gameCode = ? OR title = ?");
+    $checkStmt->bind_param("ss", $gameCode, $title);
+    $checkStmt->execute();
+    $checkStmt->store_result();
+    if ($checkStmt->num_rows > 0) {
+        echo json_encode(["status" => "error", "message" => "Game dengan kode atau judul ini sudah ada."]);
+        exit;
+    }
+
+    // Simpan ke DB
+    $stmt = $conn->prepare("INSERT INTO game (gameCode, title, genre, platform, price, releaseDate, developer, publisher, description, adminID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssdssssi", $gameCode, $title, $genre, $platform, $price, $releaseDate, $developer, $publisher, $description, $adminID);
+
+    if ($stmt->execute()) {
+        echo json_encode(["status" => "success", "message" => "Game berhasil ditambahkan", "gameID" => $stmt->insert_id]);
+    } else {
+        echo json_encode(["status" => "error", "message" => "Gagal menambahkan game", "error" => $stmt->error]);
+    }
+}
+
+// ===== PUT Game=====
+else if($method == 'PUT') {
+    if (isset($input['gameID'])) {
+        $input = [$input];
+    }
+
+    $allowedFields = ['gameCode', 'title', 'genre', 'platform', 'price', 'releaseDate', 'developer', 'publisher', 'description', 'adminID'];
+    $updatedgames = [];
+    $failedgames = [];
+
+    foreach ($input as $game) {
+        if (!isset($game['gameID'])) {
+            $failedgames[] = ["gameID" => null, "message" => "gameID tidak ditemukan"];
+            continue;
+        }
+
+        $gameID = $game['gameID'];
+
+        // Cek game
         $stmt = $conn->prepare("SELECT gameID FROM game WHERE gameID = ?");
         $stmt->bind_param("i", $gameID);
         $stmt->execute();
         $stmt->store_result();
 
         if ($stmt->num_rows === 0) {
-            echo json_encode(["message" => "game ID tidak ditemukan"]);
-            exit;
+            $failedgames[] = ["gameID" => $gameID, "message" => "game ID tidak ditemukan"];
+            continue;
         }
 
-        // Validasi releaseDate jika dikirim
-        if (isset($input['releaseDate']) && !DateTime::createFromFormat('Y-m-d', $input['releaseDate'])) {
-            echo json_encode(["message" => "Format releaseDate tidak valid (harus YYYY-MM-DD)"]);
-            exit;
+        // Validasi releaseDate
+        if (isset($game['releaseDate']) && !DateTime::createFromFormat('Y-m-d', $game['releaseDate'])) {
+            $failedgames[] = ["gameID" => $gameID, "message" => "Format releaseDate tidak valid (harus YYYY-MM-DD)"];
+            continue;
         }
 
-        // Daftar field yang boleh diupdate
-        $allowedFields = ['gameCode', 'title', 'genre', 'platform', 'releaseDate', 'developer', 'description', 'adminID'];
         $fieldsToUpdate = [];
         $types = '';
         $values = [];
 
         foreach ($allowedFields as $field) {
-            if (isset($input[$field])) {
+            if (isset($game[$field])) {
                 $fieldsToUpdate[] = "$field = ?";
-                $types .= is_numeric($input[$field]) ? 'i' : 's';
-                $values[] = $input[$field];
+                // Tentukan tipe data (string 's' atau double 'd' jika perlu)
+                $types .= is_numeric($game[$field]) && $field !== 'gameCode' ? 'd' : 's'; 
+                $values[] = $game[$field];
             }
         }
 
         if (empty($fieldsToUpdate)) {
-            echo json_encode(["message" => "Tidak ada data yang dikirim untuk diperbarui"]);
-            exit;
+            $failedgames[] = ["gameID" => $gameID, "message" => "Tidak ada field yang dikirim"];
+            continue;
         }
 
-        // Tambahkan gameID untuk WHERE
         $types .= 'i';
         $values[] = $gameID;
 
@@ -170,12 +232,54 @@ elseif ($method == 'PUT') {
         $stmt->bind_param($types, ...$values);
 
         if ($stmt->execute()) {
-            echo json_encode(["message" => "Data game berhasil diperbarui", "id" => $gameID]);
+            $updatedgames[] = ["message" => "Data game dengan ID $gameID berhasil diperbarui"];
         } else {
-            echo json_encode(["message" => "Gagal memperbarui data", "error" => $stmt->error]);
+            $failedgames[] = ["gameID" => $gameID, "message" => "Gagal memperbarui data", "error" => $stmt->error];
         }
+    }
+
+    $response = [];
+    if (!empty($updatedgames)) {
+        $response["updated"] = $updatedgames;
+    }
+    if (!empty($failedgames)) {
+        $response["failed"] = $failedgames;
+    }
+
+    echo json_encode($response);
+} 
+
+// ===== Delete game =====
+elseif ($method == 'DELETE') {
+    $gameID = $input['gameID'] ?? null;
+
+    if (empty($gameID)) {
+        echo json_encode(["message" => "game ID wajib diisi untuk menghapus data."]);
+        exit;
+    }
+
+    if (!filter_var($gameID, FILTER_VALIDATE_INT)) {
+        echo json_encode(["message" => "game ID tidak valid."]);
+        exit;
+    }
+
+    $stmt_check = $conn->prepare("SELECT gameID FROM game WHERE gameID = ?");
+    $stmt_check->bind_param("i", $gameID);
+    $stmt_check->execute();
+    $stmt_check->store_result();
+
+    if ($stmt_check->num_rows === 0) {
+        echo json_encode(["message" => "game ID tidak ditemukan."]);
+        exit;
+    }
+
+    $stmt_delete = $conn->prepare("DELETE FROM game WHERE gameID = ?");
+    $stmt_delete->bind_param("i", $gameID);
+
+    if ($stmt_delete->execute()) {
+        echo json_encode(["message" => "game berhasil dihapus.", "id" => $gameID]);
     } else {
-        echo json_encode(["message" => "Parameter ID wajib diisi"]);
+        echo json_encode(["message" => "Gagal menghapus game.", "error" => $stmt_delete->error]);
     }
 } else {
     echo json_encode(["message" => "Method not authorized"]);

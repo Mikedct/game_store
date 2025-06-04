@@ -47,75 +47,147 @@ if ($method == 'GET') {
         $users = $result->fetch_all(MYSQLI_ASSOC);
         echo json_encode($users);
     }
-} 
-
+}
 // ===== POST =====
-elseif ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $orderID = $_POST['orderID'];
-    $method = $_POST['method'];
-    $amount = $_POST['amount'];
+elseif ($method == "POST") {
+    // Validasi field
+    $requiredFields = ['paymentMethod', 'paymentStatus'];
+    $missingFields = [];
 
-    $sql = "INSERT INTO payment (paymentID, orderID, method, amount, paymentDate)
-            VALUES (NULL, $orderID, '$method', $amount, NOW())";
+    foreach ($requiredFields as $field) {
+        if (!isset($input[$field]) || trim($input[$field]) === '') {
+            $missingFields[] = $field;
+        }
+    }
 
-    if ($conn->query($sql) === TRUE) {
-        echo json_encode(["status" => "success", "message" => "Payment berhasil ditambahkan"]);
+    if (!empty($missingFields)) {
+        echo json_encode(["status" => "error", "message" => "Field wajib: " . implode(', ', $missingFields)]);
+        exit;
+    }
+
+    // Ambil dan bersihkan input
+    $paymentMethod       = trim($input['paymentMethod']);
+    $paymentStatus    = trim($input['paymentStatus']);
+
+
+    // Simpan ke DB
+    $stmt = $conn->prepare("INSERT INTO `payment` (`paymentMethod`, `paymentStatus`) VALUES (?, ?)");
+    $stmt->bind_param("ss", $paymentMethod, $paymentStatus);
+
+    if ($stmt->execute()) {
+        echo json_encode(["status" => "success", "message" => "payment berhasil ditambahkan", "paymentID" => $stmt->insert_id]);
     } else {
-        echo json_encode(["status" => "error", "message" => $conn->error]);
+        echo json_encode(["status" => "error", "message" => "Gagal menambahkan payment", "error" => $stmt->error]);
     }
 }
 
 // ===== PUT Payment =====
-elseif ($method == 'PUT') {
-    if (isset($input['id'])) {
-        $paymentID = $input['id'];
+else if($method == 'PUT') {
+    if (isset($input['paymentID'])) {
+        $input = [$input];
+    }
 
-        // Validasi: apakah payment dengan ID ini ada
-        $stmt = $conn->prepare("SELECT paymentID FROM payment WHERE paymentID = ?");
+    $allowedFields = ['paymentMethod', 'paymentStatus'];
+    $updatedpayments = [];
+    $failedpayments = [];
+
+    foreach ($input as $payment) {
+        if (!isset($payment['paymentID'])) {
+            $failedpayments[] = ["paymentID" => null, "message" => "paymentID tidak ditemukan"];
+            continue;
+        }
+
+        $paymentID = $payment['paymentID'];
+
+        // Cek payment
+        $stmt = $conn->prepare("SELECT paymentID FROM `payment` WHERE paymentID = ?");
         $stmt->bind_param("i", $paymentID);
         $stmt->execute();
         $stmt->store_result();
 
         if ($stmt->num_rows === 0) {
-            echo json_encode(["message" => "payment ID tidak ditemukan"]);
-            exit;
+            $failedpayments[] = ["paymentID" => $paymentID, "message" => "payment ID tidak ditemukan"];
+            continue;
         }
 
-        // Daftar field yang boleh diupdate
-        $allowedFields = ['paymentMethod', 'paymentStatus'];
         $fieldsToUpdate = [];
         $types = '';
         $values = [];
 
         foreach ($allowedFields as $field) {
-            if (isset($input[$field])) {
+            if (isset($payment[$field])) {
                 $fieldsToUpdate[] = "$field = ?";
-                $types .= $field == 'dateOfBirth' ? 's' : (is_numeric($input[$field]) ? 'i' : 's');
-                $values[] = $input[$field];
+
+                // Tentukan tipe parameter
+                if (in_array($field, ['paymentMethod', 'paymentStatus'])) {
+                    $types .= 's'; // string
+                } else {
+                    $types .= 'i'; // selain itu integer
+                }
+
+                $values[] = $payment[$field];
             }
         }
 
         if (empty($fieldsToUpdate)) {
-            echo json_encode(["message" => "Tidak ada data yang dikirim untuk diperbarui"]);
-            exit;
+            $failedpayments[] = ["paymentID" => $paymentID, "message" => "Tidak ada field yang dikirim"];
+            continue;
         }
 
-        // Tambahkan paymentID untuk klausa WHERE
         $types .= 'i';
         $values[] = $paymentID;
 
-        // Bangun query update dinamis
-        $sql = "UPDATE payment SET " . implode(", ", $fieldsToUpdate) . " WHERE paymentID = ?";
+        $sql = "UPDATE `payment` SET " . implode(", ", $fieldsToUpdate) . " WHERE paymentID = ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param($types, ...$values);
 
         if ($stmt->execute()) {
-            echo json_encode(["message" => "Data payment berhasil diperbarui", "id" => $paymentID]);
+            $updatedpayments[] = ["message" => "Data payment dengan ID $paymentID berhasil diperbarui"];
         } else {
-            echo json_encode(["message" => "Gagal memperbarui data", "error" => $stmt->error]);
+            $failedpayments[] = ["paymentID" => $paymentID, "message" => "Gagal memperbarui data", "error" => $stmt->error];
         }
+    }
+
+    $response = [];
+    if (!empty($updatedpayments)) {
+        $response["updated"] = $updatedpayments;
+    }
+    if (!empty($failedpayments)) {
+        $response["failed"] = $failedpayments;
+    }
+
+    echo json_encode($response);
+} 
+elseif ($method == 'DELETE') {
+    $paymentID = $input['paymentID'] ?? null;
+
+    if (empty($paymentID)) {
+        echo json_encode(["message" => "payment ID wajib diisi untuk menghapus data."]);
+        exit;
+    }
+
+    if (!filter_var($paymentID, FILTER_VALIDATE_INT)) {
+        echo json_encode(["message" => "payment ID tidak valid."]);
+        exit;
+    }
+
+    $stmt_check = $conn->prepare("SELECT paymentID FROM `payment` WHERE paymentID = ?");
+    $stmt_check->bind_param("i", $paymentID);
+    $stmt_check->execute();
+    $stmt_check->store_result();
+
+    if ($stmt_check->num_rows === 0) {
+        echo json_encode(["message" => "payment ID tidak ditemukan."]);
+        exit;
+    }
+
+    $stmt_delete = $conn->prepare("DELETE FROM `payment` WHERE paymentID = ?");
+    $stmt_delete->bind_param("i", $paymentID);
+
+    if ($stmt_delete->execute()) {
+        echo json_encode(["message" => "payment berhasil dihapus.", "id" => $paymentID]);
     } else {
-        echo json_encode(["message" => "Parameter ID wajib diisi"]);
+        echo json_encode(["message" => "Gagal menghapus payment.", "error" => $stmt_delete->error]);
     }
 } else {
     echo json_encode(["message" => "Method not authorized"]);
