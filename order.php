@@ -72,8 +72,25 @@ if ($method == 'GET') {
         echo json_encode($users);
     }
 
+// ===== POST Order =====
+} elseif ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $userID = $_POST['userID'];
+    $gameID = $_POST['gameID'];
+    $status = $_POST['status'];
+
+    $sql = "INSERT INTO `order` (orderID, userID, gameID, orderDate, status)
+            VALUES (NULL, $userID, $gameID, NOW(), '$status')";
+
+    if ($conn->query($sql) === TRUE) {
+        echo json_encode(["status" => "success", "message" => "Order berhasil ditambahkan"]);
+    } else {
+        echo json_encode(["status" => "error", "message" => $conn->error]);
+    }
+}
+
+
 // ===== PUT Order =====
-} elseif ($method == 'PUT') {
+elseif ($method == 'PUT') {
     if (isset($input['id'])) {
         $orderID = $input['id'];
 

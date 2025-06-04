@@ -95,8 +95,33 @@ if ($method == 'GET') {
         $users = $result->fetch_all(MYSQLI_ASSOC);
         echo json_encode($users);
     }
-// ===== PUT Game=====
-} elseif ($method == 'PUT') {
+} 
+
+// ===== POST Game =====
+elseif ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $gameCode = $_POST['gameCode'];
+    $title = $_POST['title'];
+    $genre = $_POST['genre'];
+    $platform = $_POST['platform'];
+    $price = $_POST['price'];
+    $releaseDate = $_POST['releaseDate'];
+    $developer = $_POST['developer'];
+    $publisher = $_POST['publisher'];
+    $description = $_POST['description'];
+    $adminID = $_POST['adminID'];
+
+    $sql = "INSERT INTO game (gameID, gameCode, title, genre, platform, price, releaseDate, developer, publisher, description, adminID)
+            VALUES (NULL, '$gameCode', '$title', '$genre', '$platform', $price, '$releaseDate', '$developer', '$publisher', '$description', $adminID)";
+
+    if ($conn->query($sql) === TRUE) {
+        echo json_encode(["status" => "success", "message" => "Game berhasil ditambahkan"]);
+    } else {
+        echo json_encode(["status" => "error", "message" => $conn->error]);
+    }
+} 
+
+// ===== PUT =====
+elseif ($method == 'PUT') {
     if (isset($input['id'])) {
         $gameID = $input['id'];
 
