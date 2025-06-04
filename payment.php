@@ -47,9 +47,26 @@ if ($method == 'GET') {
         $users = $result->fetch_all(MYSQLI_ASSOC);
         echo json_encode($users);
     }
+} 
+
+// ===== POST =====
+elseif ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $orderID = $_POST['orderID'];
+    $method = $_POST['method'];
+    $amount = $_POST['amount'];
+
+    $sql = "INSERT INTO payment (paymentID, orderID, method, amount, paymentDate)
+            VALUES (NULL, $orderID, '$method', $amount, NOW())";
+
+    if ($conn->query($sql) === TRUE) {
+        echo json_encode(["status" => "success", "message" => "Payment berhasil ditambahkan"]);
+    } else {
+        echo json_encode(["status" => "error", "message" => $conn->error]);
+    }
+}
 
 // ===== PUT Payment =====
-} elseif ($method == 'PUT') {
+elseif ($method == 'PUT') {
     if (isset($input['id'])) {
         $paymentID = $input['id'];
 
