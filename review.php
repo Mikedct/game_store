@@ -59,9 +59,27 @@ if ($method == 'GET') {
         $users = $result->fetch_all(MYSQLI_ASSOC);
         echo json_encode($users);
     }
+} 
+
+// ===== POST Review =====
+elseif ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $userID = $_POST['userID'];
+    $gameID = $_POST['gameID'];
+    $rating = $_POST['rating'];
+    $comment = $_POST['comment'];
+
+    $sql = "INSERT INTO review (reviewID, userID, gameID, rating, comment, date)
+            VALUES (NULL, $userID, $gameID, $rating, '$comment', NOW())";
+
+    if ($conn->query($sql) === TRUE) {
+        echo json_encode(["status" => "success", "message" => "Review berhasil ditambahkan"]);
+    } else {
+        echo json_encode(["status" => "error", "message" => $conn->error]);
+    }
+}
 
 // ===== PUT Review =====
-} elseif ($method == 'PUT') {
+elseif ($method == 'PUT') {
     if (isset($input['id'])) {
         $reviewID = $input['id'];
 
