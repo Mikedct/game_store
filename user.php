@@ -260,4 +260,4 @@ elseif ($method == 'DELETE') {
 } else {
     echo json_encode(["message" => "Method not authorized"]);
 }
-?>
+?>c:\Users\Lenovo\Downloads\game_store.sql
