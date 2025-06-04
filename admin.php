@@ -162,6 +162,26 @@ if ($method == 'GET') {
     }
 
     echo json_encode($response);
+} 
+
+// =====POST=====
+elseif ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $firstName = $_POST['firstName'];
+    $lastName = $_POST['lastName'];
+    $username = $_POST['username'];
+    $email = $_POST['email'];
+    $dateOfBirth = $_POST['dateOfBirth'];
+    $phoneNumber = $_POST['phoneNumber'];
+    $password = md5($_POST['password']);
+
+    $sql = "INSERT INTO admin (adminID, firstName, lastName, username, email, dateOfBirth, phoneNumber, password)
+            VALUES (NULL, '$firstName', '$lastName', '$username', '$email', '$dateOfBirth', '$phoneNumber', '$password')";
+
+    if ($conn->query($sql) === TRUE) {
+        echo json_encode(["status" => "success", "message" => "Admin berhasil ditambahkan"]);
+    } else {
+        echo json_encode(["status" => "error", "message" => $conn->error]);
+    }
 } else {
     echo json_encode(["message" => "Method not authorized"]);
 }
