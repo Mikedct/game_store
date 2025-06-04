@@ -7,5 +7,3 @@ Table :
 - Order
 - Payment
 - Review
-
-

@@ -83,9 +83,30 @@ if ($method == 'GET') {
         $users = $result->fetch_all(MYSQLI_ASSOC);
         echo json_encode($users);
     }
+}
+
+// ===== POST =====
+elseif ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $firstName = $_POST['firstName'];
+    $lastName = $_POST['lastName'];
+    $username = $_POST['username'];
+    $email = $_POST['email'];
+    $dateOfBirth = $_POST['dateOfBirth'];
+    $phoneNumber = $_POST['phoneNumber'];
+    $password = md5($_POST['password']);
+
+    $sql = "INSERT INTO user (userID, firstName, lastName, username, email, dateOfBirth, phoneNumber, password)
+            VALUES (NULL, '$firstName', '$lastName', '$username', '$email', '$dateOfBirth', '$phoneNumber', '$password')";
+
+    if ($conn->query($sql) === TRUE) {
+        echo json_encode(["status" => "success", "message" => "User berhasil ditambahkan"]);
+    } else {
+        echo json_encode(["status" => "error", "message" => $conn->error]);
+    }
+}
 
 // ===== PUT =====
-} else if($method == 'PUT') {
+else if($method == 'PUT') {
     if (isset($input['userID'])) {
         $input = [$input];
     }
