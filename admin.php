@@ -86,46 +86,57 @@ if ($method == 'GET') {
 
 // ===== PUT =====
 } elseif ($method == 'PUT') {
-    if (isset($input['id'])) {
-        $adminID = $input['id'];
+    if (!is_array($input)) {
+        echo json_encode(["message" => "Data harus berupa array JSON dengan daftar admin yang ingin diperbarui"]);
+        exit;
+    }
 
-        // Cek apakah ID ada
+    $allowedFields = ['firstName', 'lastName', 'username', 'email', 'dateOfBirth', 'phoneNumber', 'password'];
+    $updatedAdmins = [];
+    $failedAdmins = [];
+
+    foreach ($input as $admin) {
+        if (!isset($admin['adminID'])) {
+            $failedAdmins[] = ["adminID" => null, "message" => "admin ID tidak ditemukan"];
+            continue;
+        }
+
+        $adminID = $admin['adminID'];
+
+        // Validasi keberadaan admin
         $stmt = $conn->prepare("SELECT adminID FROM admin WHERE adminID = ?");
         $stmt->bind_param("i", $adminID);
         $stmt->execute();
         $stmt->store_result();
 
         if ($stmt->num_rows === 0) {
-            echo json_encode(["message" => "Admin ID tidak ditemukan"]);
-            exit;
+            $failedAdmins[] = ["id" => $adminID, "message" => "Admin ID tidak ditemukan"];
+            continue;
         }
 
-        // Validasi dateOfBirth jika dikirim
-        if (isset($input['dateOfBirth']) && !DateTime::createFromFormat('Y-m-d', $input['dateOfBirth'])) {
-            echo json_encode(["message" => "Format dateOfBirth tidak valid (harus YYYY-MM-DD)"]);
-            exit;
+        // Validasi format dateOfBirth
+        if (isset($admin['dateOfBirth']) && !DateTime::createFromFormat('Y-m-d', $admin['dateOfBirth'])) {
+            $failedAdmins[] = ["id" => $adminID, "message" => "Format dateOfBirth tidak valid (harus YYYY-MM-DD)"];
+            continue;
         }
 
-        // Daftar field yang boleh diupdate
-        $allowedFields = ['firstName', 'lastName', 'username', 'email', 'dateOfBirth', 'phoneNumber', 'password'];
         $fieldsToUpdate = [];
         $types = '';
         $values = [];
 
         foreach ($allowedFields as $field) {
-            if (isset($input[$field])) {
+            if (isset($admin[$field])) {
                 $fieldsToUpdate[] = "$field = ?";
-                $types .= is_numeric($input[$field]) ? 'i' : 's';
-                $values[] = $input[$field];
+                $types .= is_numeric($admin[$field]) && $field != 'phoneNumber' ? 'i' : 's';
+                $values[] = $admin[$field];
             }
         }
 
         if (empty($fieldsToUpdate)) {
-            echo json_encode(["message" => "Tidak ada data yang dikirim untuk diperbarui"]);
-            exit;
+            $failedAdmins[] = ["id" => $adminID, "message" => "Tidak ada field yang dikirim"];
+            continue;
         }
 
-        // Tambahkan adminID untuk WHERE
         $types .= 'i';
         $values[] = $adminID;
 
@@ -134,13 +145,23 @@ if ($method == 'GET') {
         $stmt->bind_param($types, ...$values);
 
         if ($stmt->execute()) {
-            echo json_encode(["message" => "Data admin berhasil diperbarui", "id" => $adminID]);
+            $updatedAdmins[] = ["message" => "Data admin dengan ID $adminID berhasil diperbarui"];
         } else {
-            echo json_encode(["message" => "Gagal memperbarui data", "error" => $stmt->error]);
+            $failedAdmins[] = ["id" => $adminID, "message" => "Gagal memperbarui data", "error" => $stmt->error];
         }
-    } else {
-        echo json_encode(["message" => "Parameter ID wajib diisi"]);
     }
+
+    // Buat response dinamis
+    $response = [];
+    if (!empty($updatedAdmins)) {
+        $response["updated"] = $updatedAdmins;
+    }
+
+    if (!empty($failedAdmins)) {
+        $response["failed"] = $failedAdmins;
+    }
+
+    echo json_encode($response);
 } else {
     echo json_encode(["message" => "Method not authorized"]);
 }
