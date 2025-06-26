@@ -100,7 +100,7 @@ if ($method == 'GET') {
 // ===== Insert game ====
 elseif ($method == "POST") {
     // Validasi field
-    $requiredFields = ['gameCode', 'title', 'genre', 'platform', 'price', 'releaseDate', 'developer', 'publisher', 'description', 'adminID'];
+    $requiredFields = ['gameCode', 'title', 'genre', 'platform', 'price', 'releaseDate', 'developer', 'publisher', 'description','image', 'adminID'];
     $missingFields = [];
 
     foreach ($requiredFields as $field) {
@@ -124,6 +124,7 @@ elseif ($method == "POST") {
     $developer   = trim($input['developer']);
     $publisher   = trim($input['publisher']);
     $description = trim($input['description']);
+    $image = trim($input['image']);
     $adminIDInput= trim($input['adminID']);
 
     // Validasi price: angka >= 0 atau string "free"
@@ -161,8 +162,8 @@ elseif ($method == "POST") {
     }
 
     // Simpan ke DB
-    $stmt = $conn->prepare("INSERT INTO game (gameCode, title, genre, platform, price, releaseDate, developer, publisher, description, adminID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("ssssdssssi", $gameCode, $title, $genre, $platform, $price, $releaseDate, $developer, $publisher, $description, $adminID);
+    $stmt = $conn->prepare("INSERT INTO game (gameCode, title, genre, platform, price, releaseDate, developer, publisher, description, image, adminID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssdsssssi", $gameCode, $title, $genre, $platform, $price, $releaseDate, $developer, $publisher, $description, $image, $adminID);
 
     if ($stmt->execute()) {
         echo json_encode(["status" => "success", "message" => "Game berhasil ditambahkan", "gameID" => $stmt->insert_id]);
@@ -177,7 +178,7 @@ else if($method == 'PUT') {
         $input = [$input];
     }
 
-    $allowedFields = ['gameCode', 'title', 'genre', 'platform', 'price', 'releaseDate', 'developer', 'publisher', 'description', 'adminID'];
+    $allowedFields = ['gameCode', 'title', 'genre', 'platform', 'price', 'releaseDate', 'developer', 'publisher', 'description', 'image', 'adminID'];
     $updatedgames = [];
     $failedgames = [];
 
