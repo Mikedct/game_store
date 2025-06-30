@@ -100,7 +100,7 @@ if ($method == 'GET') {
 // ===== Insert game ====
 elseif ($method == "POST") {
     // Validasi field
-    $requiredFields = ['gameCode', 'title', 'genre', 'platform', 'price', 'releaseDate', 'developer', 'publisher', 'description','image', 'adminID'];
+    $requiredFields = ['gameCode', 'title', 'genre', 'platform', 'price', 'releaseDate', 'developer', 'publisher', 'description','image','videolink','adminID'];
     $missingFields = [];
 
     foreach ($requiredFields as $field) {
@@ -125,6 +125,7 @@ elseif ($method == "POST") {
     $publisher   = trim($input['publisher']);
     $description = trim($input['description']);
     $image = trim($input['image']);
+    $videolink = trim($input['videolink']);
     $adminIDInput= trim($input['adminID']);
 
     // Validasi price: angka >= 0 atau string "free"
@@ -162,8 +163,8 @@ elseif ($method == "POST") {
     }
 
     // Simpan ke DB
-    $stmt = $conn->prepare("INSERT INTO game (gameCode, title, genre, platform, price, releaseDate, developer, publisher, description, image, adminID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("ssssdsssssi", $gameCode, $title, $genre, $platform, $price, $releaseDate, $developer, $publisher, $description, $image, $adminID);
+    $stmt = $conn->prepare("INSERT INTO game (gameCode, title, genre, platform, price, releaseDate, developer, publisher, description, image, videolink, adminID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssdssssssi", $gameCode, $title, $genre, $platform, $price, $releaseDate, $developer, $publisher, $description, $image, $videolink, $adminID);
 
     if ($stmt->execute()) {
         echo json_encode(["status" => "success", "message" => "Game berhasil ditambahkan", "gameID" => $stmt->insert_id]);
@@ -178,7 +179,7 @@ else if($method == 'PUT') {
         $input = [$input];
     }
 
-    $allowedFields = ['gameCode', 'title', 'genre', 'platform', 'price', 'releaseDate', 'developer', 'publisher', 'description', 'image', 'adminID'];
+    $allowedFields = ['gameCode', 'title', 'genre', 'platform', 'price', 'releaseDate', 'developer', 'publisher', 'description', 'image','videolink', 'adminID'];
     $updatedgames = [];
     $failedgames = [];
 
