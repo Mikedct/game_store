@@ -27,7 +27,7 @@ if (isset($input['username']) && isset($input['password'])) {
 
         $jwt = JWT::encode($payload, $key, 'HS256');
 
-        echo json_encode(["message" => "Login successful", "token" => $jwt, "userID" => $result['userID'], "username" ]);
+        echo json_encode(["message" => "Login successful", "token" => $jwt, "userID" => $result['userID'], "username" => $result["username" ]]);
     } else {
         echo json_encode(["message" => "Invalid credentials"]);
     }
