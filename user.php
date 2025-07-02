@@ -6,7 +6,9 @@ require "middleware.php";
 $method = $_SERVER['REQUEST_METHOD'];
 $input = json_decode(file_get_contents("php://input"), true);
 
-$user=verifyJWT();
+if ($method !== 'POST') {
+    $user = verifyJWT(); // hanya cek token untuk method selain POST
+}
 
 if ($method == 'GET') {
     if (isset($_GET['userID'])) {
