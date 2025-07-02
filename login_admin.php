@@ -20,22 +20,18 @@ if (isset($input['username']) && isset($input['password'])) {
 
     if ($result) {
         $payload = [
-            "adminID"  => $result['adminID'],
+            "userId" => $result['adminID'],
             "username" => $result['username'],
-            "exp"      => time() + 3600
+            "exp" => time() + 3600 // Token berlaku 1 jam
         ];
 
         $jwt = JWT::encode($payload, $key, 'HS256');
 
-        echo json_encode([
-            "message"  => "Login successful",
-            "token"    => $jwt,
-            "adminID"  => $result['adminID'],
-            "username" => $result['username']
-        ]);
+        echo json_encode(["message" => "Login successful", "token" => $jwt, "adminID" => $result['adminID'], "username" => $result["username"]]);
     } else {
         echo json_encode(["message" => "Invalid credentials"]);
     }
 } else {
     echo json_encode(["message" => "Username and password are required"]);
 }
+?>
