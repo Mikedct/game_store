@@ -188,7 +188,7 @@ elseif ($method == 'PUT') {
                 if ($field === 'password') {
                     $types .= 's';
                     $values[] = md5($user[$field]); // Hash password dengan md5
-                } elseif (in_array($field, ['FirstName', 'LastName', 'Username', 'Email', 'phoneNumber', 'dateOfBirth'])) {
+                } elseif (in_array($field, ['firstName', 'lastName', 'username', 'email', 'phoneNumber', 'dateOfBirth'])) {
                     $types .= 's';
                     $values[] = $user[$field];
                 } else {
